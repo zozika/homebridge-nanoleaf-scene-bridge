@@ -1,0 +1,57 @@
+{
+  "name": "homebridge-nanoleaf-scene-bridge",
+  "displayName": "Nanoleaf Scene Bridge",
+  "version": "0.1.0",
+  "description": "Exposes the scenes of Wi-Fi Nanoleaf devices to HomeKit as switches that track the active scene, ready to be used in Home app scenes.",
+  "author": "palmaiz",
+  "license": "MIT",
+  "homepage": "https://github.com/zozika/homebridge-nanoleaf-scene-bridge#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zozika/homebridge-nanoleaf-scene-bridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zozika/homebridge-nanoleaf-scene-bridge/issues"
+  },
+  "funding": {
+    "type": "buymeacoffee",
+    "url": "https://www.buymeacoffee.com/palmaiz"
+  },
+  "main": "dist/index.js",
+  "bin": {
+    "nanoleaf-scene-bridge": "bin/nanoleaf-scene-bridge.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "config.schema.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "watch": "tsc --watch",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "homebridge",
+    "homekit",
+    "nanoleaf",
+    "scenes",
+    "effects",
+    "matter",
+    "wifi"
+  ],
+  "engines": {
+    "node": "^20.18.0 || ^22.10.0 || ^24.0.0",
+    "homebridge": "^1.8.0 || ^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "homebridge": "^2.4.0",
+    "typescript": "^5.9.0"
+  }
+}

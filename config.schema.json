@@ -1,0 +1,143 @@
+{
+  "pluginAlias": "NanoleafSceneBridge",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Every scene of your Wi-Fi Nanoleaf devices appears in HomeKit as a switch. Add the switches to Home app scenes. To pair: enter the device IP, restart Homebridge, then hold the power button on the Nanoleaf for 5-7 seconds.",
+  "footerDisplay": "If this plugin lights up your home, you can [buy me a coffee](https://www.buymeacoffee.com/palmaiz) ☕",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "Nanoleaf Scenes",
+        "required": true
+      },
+      "devices": {
+        "title": "Devices",
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "title": "IP address or hostname",
+              "type": "string",
+              "placeholder": "192.168.1.50",
+              "description": "Use a fixed IP (DHCP reservation) or the device's .local hostname.",
+              "required": true
+            },
+            "port": {
+              "title": "Port",
+              "type": "integer",
+              "placeholder": 16021
+            },
+            "token": {
+              "title": "Auth token (optional)",
+              "type": "string",
+              "description": "Leave empty to pair automatically by holding the power button for 5-7 seconds."
+            }
+          }
+        }
+      },
+      "offAction": {
+        "title": "Turning off the active scene's switch",
+        "type": "string",
+        "default": "off",
+        "oneOf": [
+          {
+            "title": "Turns the lights off",
+            "enum": [
+              "off"
+            ]
+          },
+          {
+            "title": "Switches back to the previous scene",
+            "enum": [
+              "previous"
+            ]
+          },
+          {
+            "title": "Does nothing",
+            "enum": [
+              "none"
+            ]
+          }
+        ]
+      },
+      "namePrefix": {
+        "title": "Name prefix",
+        "type": "string",
+        "placeholder": "Nanoleaf ",
+        "description": "Optional text put in front of every scene name in HomeKit."
+      },
+      "include": {
+        "title": "Only these scenes",
+        "type": "array",
+        "description": "If set, only these scenes are exposed. Leave empty to expose all.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "exclude": {
+        "title": "Hide these scenes",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "pollInterval": {
+        "title": "Poll interval (seconds)",
+        "type": "integer",
+        "default": 15,
+        "minimum": 5,
+        "description": "Changes are normally pushed instantly by the device; polling is only a fallback and picks up new scenes."
+      }
+    }
+  },
+  "layout": [
+    "name",
+    {
+      "key": "devices",
+      "type": "array",
+      "orderable": false,
+      "buttonText": "Add device",
+      "items": [
+        "devices[].host",
+        "devices[].port",
+        "devices[].token"
+      ]
+    },
+    "offAction",
+    "namePrefix",
+    {
+      "type": "fieldset",
+      "title": "Scene filter",
+      "expandable": true,
+      "items": [
+        {
+          "key": "include",
+          "type": "array",
+          "items": [
+            "include[]"
+          ]
+        },
+        {
+          "key": "exclude",
+          "type": "array",
+          "items": [
+            "exclude[]"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Advanced",
+      "expandable": true,
+      "items": [
+        "pollInterval"
+      ]
+    }
+  ]
+}
