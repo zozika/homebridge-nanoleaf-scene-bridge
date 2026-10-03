@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+### Added
+- **Automatic discovery**: Nanoleaf devices on the network are found via mDNS without entering IP addresses
+  (`discovery`, on by default). Address changes are followed automatically.
+- Pairing through **Connect to API** in the Nanoleaf app is mentioned in the log and settings, as an alternative to the
+  power button.
+
+### Changed
+- `devices` is optional; it is only needed for devices discovery cannot find. Existing configurations keep working,
+  and a device that is both configured and discovered is handled once, without pairing again.
+- With discovery on, cached switches of devices that are not found are kept instead of being removed.
+
 ## 0.1.0
 
 First release.

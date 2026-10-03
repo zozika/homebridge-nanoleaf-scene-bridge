@@ -16,7 +16,14 @@ export class TokenStore {
     return this.tokens[host];
   }
 
+  values(): string[] {
+    return Object.values(this.tokens);
+  }
+
   set(host: string, token: string): void {
+    if (this.tokens[host] === token) {
+      return;
+    }
     this.tokens[host] = token;
     this.save();
   }

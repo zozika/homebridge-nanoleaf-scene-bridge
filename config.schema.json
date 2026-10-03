@@ -2,7 +2,7 @@
   "pluginAlias": "NanoleafSceneBridge",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "Every scene of your Wi-Fi Nanoleaf devices appears in HomeKit as a switch. Add the switches to Home app scenes. To pair: enter the device IP, restart Homebridge, then hold the power button on the Nanoleaf for 5-7 seconds.",
+  "headerDisplay": "Every scene of your Wi-Fi Nanoleaf devices appears in HomeKit as a switch; add the switches to Home app scenes. Devices on your network are found automatically. To pair a device, enable **Connect to API** in its settings in the Nanoleaf app (or hold its power button for 5-7 seconds) while Homebridge is running.",
   "footerDisplay": "If this plugin lights up your home, you can [buy me a coffee](https://www.buymeacoffee.com/palmaiz) ☕",
   "schema": {
     "type": "object",
@@ -13,10 +13,14 @@
         "default": "Nanoleaf Scenes",
         "required": true
       },
+      "discovery": {
+        "title": "Find Nanoleaf devices on the network automatically",
+        "type": "boolean",
+        "default": true
+      },
       "devices": {
-        "title": "Devices",
+        "title": "Devices added by address",
         "type": "array",
-        "minItems": 1,
         "items": {
           "type": "object",
           "properties": {
@@ -38,7 +42,8 @@
               "description": "Leave empty to pair automatically by holding the power button for 5-7 seconds."
             }
           }
-        }
+        },
+        "description": "Only needed for devices that automatic discovery cannot find (e.g. on another network without an mDNS reflector)."
       },
       "offAction": {
         "title": "Turning off the active scene's switch",
@@ -97,15 +102,24 @@
   },
   "layout": [
     "name",
+    "discovery",
     {
-      "key": "devices",
-      "type": "array",
-      "orderable": false,
-      "buttonText": "Add device",
+      "type": "fieldset",
+      "title": "Devices added by address",
+      "expandable": true,
       "items": [
-        "devices[].host",
-        "devices[].port",
-        "devices[].token"
+        {
+          "key": "devices",
+          "type": "array",
+          "orderable": false,
+          "buttonText": "Add device",
+          "items": [
+            "devices[].host",
+            "devices[].port",
+            "devices[].token"
+          ],
+          "notitle": true
+        }
       ]
     },
     "offAction",

@@ -1,7 +1,7 @@
 {
   "name": "homebridge-nanoleaf-scene-bridge",
   "displayName": "Nanoleaf Scene Bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Exposes the scenes of Wi-Fi Nanoleaf devices to HomeKit as switches that track the active scene, ready to be used in Home app scenes.",
   "author": "palmaiz",
   "license": "MIT",
@@ -53,5 +53,8 @@
     "@types/node": "^20.19.0",
     "homebridge": "^2.4.0",
     "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "bonjour-service": "^1.4.4"
   }
 }

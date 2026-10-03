@@ -22,9 +22,18 @@ export interface DeviceConfig {
   token?: string;
 }
 
-interface SceneContext {
+/** A device to run: a configured one, or one found by discovery. */
+export interface DeviceOptions extends DeviceConfig {
+  /** Stable identity used for the stored token and cached accessories. Configured devices use their host. */
+  key: string;
+  /** Name to log until the device reports its own. */
+  name?: string;
+}
+
+export interface SceneContext {
   serialNo: string;
   host: string;
+  deviceKey?: string;
   effect: string;
 }
 
@@ -49,25 +58,32 @@ export class NanoleafDevice {
   private isOn = false;
   private currentEffect = '';
   private previousEffect?: string;
+  private token?: string;
   private configTokenRejected = false;
   private scenesKey = '';
+  private streamAbort?: AbortController;
+  private wake?: () => void;
 
   /** Scene switch accessories, keyed by effect name. */
   private readonly scenes = new Map<string, PlatformAccessory>();
   private readonly lastSwitchState = new Map<string, boolean>();
   private readonly abort = new AbortController();
-  private readonly port: number;
   private readonly pollMs: number;
+  private port: number;
 
   constructor(
     private readonly platform: NanoleafSceneBridgePlatform,
-    private readonly config: DeviceConfig,
+    private readonly config: DeviceOptions,
   ) {
     this.port = config.port ?? DEFAULT_PORT;
     this.pollMs = Math.max(MIN_POLL_SECONDS, platform.config.pollInterval ?? DEFAULT_POLL_SECONDS) * 1000;
   }
 
-  private get host(): string {
+  get key(): string {
+    return this.config.key;
+  }
+
+  get host(): string {
     return this.config.host;
   }
 
@@ -76,7 +92,7 @@ export class NanoleafDevice {
   }
 
   start(): void {
-    for (const accessory of this.platform.claimAccessoriesByHost(this.host)) {
+    for (const accessory of this.platform.claimAccessoriesForDevice(this.key, this.host)) {
       const { effect } = accessory.context as SceneContext;
       this.scenes.set(effect, accessory);
       this.configureScene(accessory, effect);
@@ -88,15 +104,28 @@ export class NanoleafDevice {
     this.abort.abort();
   }
 
+  /** Follows a new address reported by discovery and reconnects right away. */
+  updateAddress(host: string, port: number): void {
+    if (host === this.config.host && port === this.port) {
+      return;
+    }
+    this.log('info', `Address changed from ${this.config.host}:${this.port} to ${host}:${port}.`);
+    this.config.host = host;
+    this.port = port;
+    this.client = undefined;
+    this.streamAbort?.abort();
+    this.wake?.();
+  }
+
   private async run(): Promise<void> {
     let failures = 0;
     while (!this.stopped) {
       if (!this.client) {
-        const token = await this.obtainToken();
-        if (!token) {
+        this.token ??= await this.obtainToken();
+        if (!this.token) {
           return;
         }
-        this.client = new NanoleafClient(this.host, this.port, token);
+        this.client = new NanoleafClient(this.host, this.port, this.token);
         this.listen(this.client);
       }
 
@@ -112,7 +141,7 @@ export class NanoleafDevice {
           return;
         }
         if (err instanceof NanoleafHttpError && err.status === 401) {
-          this.log('error', 'The auth token was rejected. Hold the power button for 5-7 seconds to pair again.');
+          this.log('error', 'The auth token was rejected, pairing again.');
           this.forgetToken();
           continue;
         }
@@ -129,18 +158,30 @@ export class NanoleafDevice {
     if (this.config.token && !this.configTokenRejected) {
       return this.config.token;
     }
-    const stored = this.platform.tokens.get(this.host);
+    const stored = this.platform.tokens.get(this.key) ?? this.platform.tokens.get(this.host);
     if (stored) {
+      this.platform.tokens.set(this.key, stored);
       return stored;
     }
+    // A device found again under a new identity or address (e.g. one that is also configured
+    // by hand) already accepts one of the known tokens, so it does not need to pair again.
+    for (const candidate of this.platform.knownTokens()) {
+      try {
+        await new NanoleafClient(this.host, this.port, candidate).getInfo();
+        this.platform.tokens.set(this.key, candidate);
+        return candidate;
+      } catch {
+        // Not this device's token.
+      }
+    }
 
-    this.log('warn', 'Not paired yet. Hold the power button on the Nanoleaf for 5-7 seconds until the light flashes; ' +
-      'pairing completes automatically.');
+    this.log('warn', `Not paired yet (${this.host}). In the Nanoleaf app open this device's settings and enable ` +
+      '"Connect to API", or hold the power button for 5-7 seconds. Pairing completes automatically.');
     let attempts = 0;
     while (!this.stopped) {
       try {
         const token = await requestToken(this.host, this.port);
-        this.platform.tokens.set(this.host, token);
+        this.platform.tokens.set(this.key, token);
         this.log('info', 'Paired successfully, the auth token is saved.');
         return token;
       } catch (err) {
@@ -158,16 +199,21 @@ export class NanoleafDevice {
     if (this.config.token) {
       this.configTokenRejected = true;
     }
+    this.platform.tokens.delete(this.key);
     this.platform.tokens.delete(this.host);
+    this.token = undefined;
     this.client = undefined;
+    this.streamAbort?.abort();
     this.setReachable(false);
   }
 
   /** Keeps an event stream open for as long as `client` is the current client. */
   private listen(client: NanoleafClient): void {
+    const streamAbort = new AbortController();
+    this.streamAbort = streamAbort;
     const loop = async () => {
       while (!this.stopped && this.client === client) {
-        const signal = AbortSignal.any([this.abort.signal, AbortSignal.timeout(EVENT_STREAM_MAX_MS)]);
+        const signal = AbortSignal.any([this.abort.signal, streamAbort.signal, AbortSignal.timeout(EVENT_STREAM_MAX_MS)]);
         try {
           await client.streamEvents([EVENT_STATE, EVENT_EFFECTS], (id, events) => this.onEvents(id, events), signal);
         } catch (err) {
@@ -197,6 +243,11 @@ export class NanoleafDevice {
 
   private async refresh(client: NanoleafClient): Promise<void> {
     const info = await client.getInfo();
+    if (!this.platform.claimSerial(info.serialNo, this)) {
+      this.log('debug', `Already handled as another device entry (serial ${info.serialNo}), ignoring this one.`);
+      this.stop();
+      return;
+    }
     this.info = info;
     this.isOn = Boolean(info.state?.on?.value);
     this.setCurrentEffect(info.effects?.select ?? '');
@@ -300,7 +351,7 @@ export class NanoleafDevice {
     const name = this.sceneName(effect);
 
     if (info) {
-      const context: SceneContext = { serialNo: info.serialNo, host: this.host, effect };
+      const context: SceneContext = { serialNo: info.serialNo, host: this.host, deviceKey: this.key, effect };
       accessory.context = context;
       accessory.getService(Service.AccessoryInformation)!
         .setCharacteristic(Characteristic.Manufacturer, info.manufacturer || 'Nanoleaf')
@@ -407,20 +458,22 @@ export class NanoleafDevice {
         resolve();
         return;
       }
-      const onAbort = () => {
+      const done = () => {
         clearTimeout(timer);
+        signal.removeEventListener('abort', done);
+        if (this.wake === done) {
+          this.wake = undefined;
+        }
         resolve();
       };
-      const timer = setTimeout(() => {
-        signal.removeEventListener('abort', onAbort);
-        resolve();
-      }, ms);
-      signal.addEventListener('abort', onAbort, { once: true });
+      const timer = setTimeout(done, ms);
+      signal.addEventListener('abort', done, { once: true });
+      this.wake = done;
     });
   }
 
   private log(level: 'debug' | 'info' | 'warn' | 'error', message: string): void {
-    const name = this.info?.name ?? this.host;
+    const name = this.info?.name ?? this.config.name ?? this.host;
     this.platform.log[level](`[${name}] ${message}`);
   }
 }
