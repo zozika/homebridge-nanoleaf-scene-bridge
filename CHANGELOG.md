@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0
+
+First stable release, tested with a Nanoleaf Outdoor String Lights (NL73K1) in Homebridge 2.4 and Homebridge UI 5.29.
+
+### Changed
+- Switches are named **Nanoleaf - <scene>** by default (e.g. *Nanoleaf - Sky Dive*). Set `namePrefix` to change the
+  prefix, or empty it for the bare scene names.
+- Existing switches take the new name in the Home app too (via `ConfiguredName`). A switch renamed in the Home app keeps
+  its name; the plugin only renames it again when its own naming changes.
+
 ## 0.3.0
 
 ### Added

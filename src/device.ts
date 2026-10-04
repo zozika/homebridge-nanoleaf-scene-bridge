@@ -35,6 +35,8 @@ export interface SceneContext {
   host: string;
   deviceKey?: string;
   effect: string;
+  /** The name last given to the switch by the plugin. */
+  namedAs?: string;
 }
 
 const PAIRING_RETRY_MS = 5_000;
@@ -42,6 +44,7 @@ const EVENT_RECONNECT_MS = 10_000;
 /** Reopen the event stream periodically so a silently dropped connection cannot linger. */
 const EVENT_STREAM_MAX_MS = 30 * 60_000;
 const DEFAULT_POLL_SECONDS = 15;
+export const DEFAULT_NAME_PREFIX = 'Nanoleaf - ';
 const MIN_POLL_SECONDS = 5;
 
 /**
@@ -361,7 +364,8 @@ export class NanoleafDevice {
     const name = this.sceneName(effect);
 
     if (info) {
-      const context: SceneContext = { serialNo: info.serialNo, host: this.host, deviceKey: this.key, effect };
+      const { namedAs } = accessory.context as Partial<SceneContext>;
+      const context: SceneContext = { serialNo: info.serialNo, host: this.host, deviceKey: this.key, effect, namedAs };
       accessory.context = context;
       accessory.getService(Service.AccessoryInformation)!
         .setCharacteristic(Characteristic.Manufacturer, info.manufacturer || 'Nanoleaf')
@@ -372,13 +376,23 @@ export class NanoleafDevice {
 
     const service = accessory.getService(Service.Switch) ?? accessory.addService(Service.Switch, name);
     service.setCharacteristic(Characteristic.Name, name);
+    // The Home app keeps the name a switch had when it was added and only follows ConfiguredName
+    // afterwards. Push our name only when it changed here, so a rename in the Home app is kept.
+    if (!service.testCharacteristic(Characteristic.ConfiguredName)) {
+      service.addOptionalCharacteristic(Characteristic.ConfiguredName);
+    }
+    const context = accessory.context as Partial<SceneContext>;
+    if (context.namedAs !== name) {
+      service.setCharacteristic(Characteristic.ConfiguredName, name);
+      context.namedAs = name;
+    }
     service.getCharacteristic(Characteristic.On)
       .onGet(() => this.getSceneState(effect))
       .onSet((value) => this.setSceneState(effect, Boolean(value)));
   }
 
   private sceneName(effect: string): string {
-    return toHomeKitName(`${this.platform.config.namePrefix ?? ''}${effect}`);
+    return toHomeKitName(`${this.platform.config.namePrefix ?? DEFAULT_NAME_PREFIX}${effect}`);
   }
 
   private isSceneActive(effect: string): boolean {

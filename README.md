@@ -27,7 +27,7 @@ scene that turns its switch on. From then on it works like any other HomeKit sce
 - Pairing from the Nanoleaf app (**Connect to API**) or with the power button; the token is stored for you
 - Configurable behaviour when the active scene's switch is turned off: lights off, back to the previous scene, or nothing
 - Choose the scenes on the settings page: tick the ones you want in HomeKit, and decide whether scenes created later are added automatically
-- Optional name prefix
+- Switches are named like *Nanoleaf - Sky Dive*; the prefix can be changed or removed, and renames made in the Home app are kept
 - Scene names are cleaned up for HomeKit (e.g. emoji are removed)
 - Multiple devices
 - Lightweight: a single small runtime dependency (`bonjour-service` for discovery)
@@ -53,7 +53,7 @@ npm install -g homebridge-nanoleaf-scene-bridge
    *Add new scenes automatically* if only the ticked ones should appear, even after you create new scenes. Save and restart.
 5. In the Home app, move the scene switches to a room of their own (e.g. "Nanoleaf") so they don't clutter your Home view.
 6. For each Nanoleaf scene you want: Home app → **+** → **Add Scene** → **Custom**, name it (e.g. *Aurora*), add the
-   *Aurora* switch and set it to **On**. You can add other accessories to the same scene too.
+   *Nanoleaf - Aurora* switch and set it to **On**. You can add other accessories to the same scene too.
 
 ## Configuration
 
@@ -73,7 +73,7 @@ npm install -g homebridge-nanoleaf-scene-bridge
 | `devices[].port` | API port, default `16021` |
 | `devices[].token` | Optional auth token. Leave empty to pair automatically; the token is saved to `nanoleaf-scene-bridge-tokens.json` in the Homebridge storage folder |
 | `offAction` | Turning off the active scene's switch: `off` turns the lights off (default), `previous` switches back to the previous scene, `none` does nothing |
-| `namePrefix` | Text put in front of every scene name, e.g. `"Nanoleaf "` |
+| `namePrefix` | Text put in front of every scene name, default `"Nanoleaf - "` (e.g. *Nanoleaf - Sky Dive*). Empty for the bare scene names |
 | `include` | Only expose these scenes (case-insensitive). Empty means all. Normally set with the ticks on the settings page |
 | `exclude` | Hide these scenes. Normally set with the ticks on the settings page |
 | `pollInterval` | Fallback polling interval in seconds, default `15`, minimum `5` |
@@ -125,7 +125,7 @@ működik, mint bármely más HomeKit jelenet.
 - Párosítás a Nanoleaf appból (**Connect to API**) vagy a bekapcsológombbal
 - Beállítható, mi történjen, ha az aktív scene kapcsolóját kikapcsolod
 - A beállítási oldalon bepipálhatod, mely scene-ek jelenjenek meg, és hogy a később létrehozottak automatikusan bekerüljenek-e
-- Név-előtag
+- A kapcsolók neve pl. *Nanoleaf - Sky Dive*; az előtag átírható vagy elhagyható, és a Home appban adott saját nevet nem írja felül
 
 A csak Threadet tudó Nanoleaf eszközöket nem támogatja.
 
@@ -139,7 +139,7 @@ A csak Threadet tudó Nanoleaf eszközöket nem támogatja.
    *Új scene-ek automatikus hozzáadása* opciót, ha csak a bepipáltak jelenjenek meg, az új scene-ek se. Mentés, újraindítás.
 5. A Home appban tedd a kapcsolókat egy külön szobába (pl. „Nanoleaf”).
 6. Minden kívánt scene-hez: Home app → **+** → **Jelenet hozzáadása** → **Egyéni**, nevezd el (pl. *Aurora*), add hozzá
-   az *Aurora* kapcsolót, és állítsd **BE**-re.
+   a *Nanoleaf - Aurora* kapcsolót, és állítsd **BE**-re.
 
 ### Hibaelhárítás
 

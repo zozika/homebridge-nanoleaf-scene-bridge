@@ -75,8 +75,8 @@
       "namePrefix": {
         "title": "Name prefix",
         "type": "string",
-        "placeholder": "Nanoleaf ",
-        "description": "Optional text put in front of every scene name in HomeKit."
+        "description": "Put in front of every scene name in HomeKit, e.g. \"Nanoleaf - Sky Dive\". Leave empty for the bare scene names.",
+        "default": "Nanoleaf - "
       },
       "include": {
         "title": "Only these scenes",

@@ -124,6 +124,7 @@ test('toHomeKitName removes characters HomeKit does not accept', () => {
   assert.equal(toHomeKitName('Rock\'n\'Roll  #2'), 'Rock\'n\'Roll 2');
   assert.equal(toHomeKitName('Ébredés - reggel'), 'Ébredés - reggel');
   assert.equal(toHomeKitName('Relax & Refresh'), 'Relax & Refresh');
+  assert.equal(toHomeKitName('Nanoleaf - Sky Dive'), 'Nanoleaf - Sky Dive');
   assert.equal(toHomeKitName('Party! (Night)'), 'Party! (Night');
   assert.equal(toHomeKitName('🎉🎉'), 'Nanoleaf Scene');
 });
