@@ -14,6 +14,7 @@ import type {
 
 import { DEFAULT_PORT } from './client';
 import { DeviceConfig, NanoleafDevice, OffAction, SceneContext } from './device';
+import { SCENE_CATALOG_FILE, SceneCatalog } from './sceneCatalog';
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { TokenStore } from './tokenStore';
 
@@ -35,6 +36,7 @@ export class NanoleafSceneBridgePlatform implements DynamicPlatformPlugin {
   readonly Service: typeof Service;
   readonly Characteristic: typeof Characteristic;
   readonly tokens: TokenStore;
+  readonly sceneCatalog: SceneCatalog;
 
   /** Accessories restored from the cache that no device has claimed yet. */
   private readonly unclaimed = new Map<string, PlatformAccessory>();
@@ -55,6 +57,7 @@ export class NanoleafSceneBridgePlatform implements DynamicPlatformPlugin {
     this.Service = api.hap.Service;
     this.Characteristic = api.hap.Characteristic;
     this.tokens = new TokenStore(path.join(api.user.storagePath(), 'nanoleaf-scene-bridge-tokens.json'));
+    this.sceneCatalog = new SceneCatalog(path.join(api.user.storagePath(), SCENE_CATALOG_FILE));
 
     api.on('didFinishLaunching', () => this.start());
     api.on('shutdown', () => this.shutdown());

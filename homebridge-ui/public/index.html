@@ -1,0 +1,208 @@
+<div class="card card-body mb-3">
+  <h5 class="mb-1" data-t="title"></h5>
+  <p class="text-muted small mb-3" data-t="intro"></p>
+
+  <div class="form-check form-switch mb-3">
+    <input class="form-check-input" type="checkbox" role="switch" id="auto-add">
+    <label class="form-check-label" for="auto-add" data-t="autoAdd"></label>
+    <div class="form-text" id="auto-add-help"></div>
+  </div>
+
+  <div id="devices"></div>
+  <div id="empty" class="alert alert-info d-none" data-t="empty"></div>
+  <div id="none-selected" class="alert alert-warning d-none" data-t="noneSelected"></div>
+  <p class="small text-muted mb-0" data-t="applyHint"></p>
+</div>
+
+<script>
+  (() => {
+    const PLATFORM = 'NanoleafSceneBridge';
+
+    const TEXT = {
+      en: {
+        title: 'Scenes in HomeKit',
+        intro: 'Choose which Nanoleaf scenes appear in HomeKit as switches.',
+        autoAdd: 'Add new scenes automatically',
+        autoAddOn: 'Scenes you create later in the Nanoleaf app appear in HomeKit too. Untick the ones you do not want.',
+        autoAddOff: 'Only the ticked scenes appear in HomeKit. Scenes created later have to be ticked here.',
+        all: 'All',
+        none: 'None',
+        empty: 'No scenes are known yet. Start Homebridge with this plugin and pair your Nanoleaf; its scenes are listed here afterwards.',
+        noneSelected: 'No scene is ticked, so all scenes would appear. Tick at least one.',
+        applyHint: 'Changes apply after Save and a restart of Homebridge.',
+      },
+      hu: {
+        title: 'Scene-ek a HomeKitben',
+        intro: 'Válaszd ki, mely Nanoleaf scene-ek jelenjenek meg kapcsolóként a HomeKitben.',
+        autoAdd: 'Új scene-ek automatikus hozzáadása',
+        autoAddOn: 'A később a Nanoleaf appban létrehozott scene-ek is megjelennek. Vedd ki a pipát azokból, amelyeket nem szeretnél.',
+        autoAddOff: 'Csak a bepipált scene-ek jelennek meg. A később létrehozottakat itt kell bepipálni.',
+        all: 'Mind',
+        none: 'Egyik sem',
+        empty: 'Még nincs ismert scene. Indítsd el a Homebridge-et ezzel a pluginnal, és párosítsd a Nanoleafet; utána itt megjelennek a scene-jei.',
+        noneSelected: 'Nincs bepipált scene, így az összes megjelenne. Pipálj be legalább egyet.',
+        applyHint: 'A változások mentés és a Homebridge újraindítása után lépnek életbe.',
+      },
+    };
+
+    const hb = window.homebridge;
+    const $ = (id) => document.getElementById(id);
+    const norm = (name) => String(name).trim().toLowerCase();
+    let text = TEXT.en;
+
+    let config;
+    /** Lowercased scene name → name as the device reports it. */
+    const known = new Map();
+    /** Lowercased names of the ticked scenes. */
+    const ticked = new Set();
+    let autoAdd = true;
+
+    function translate() {
+      document.querySelectorAll('[data-t]').forEach((el) => (el.textContent = text[el.dataset.t]));
+    }
+
+    function render(devices) {
+      const container = $('devices');
+      container.replaceChildren();
+      $('empty').classList.toggle('d-none', devices.length > 0);
+
+      devices.forEach((device, d) => {
+        const group = document.createElement('div');
+        group.className = 'mb-3';
+
+        const header = document.createElement('div');
+        header.className = 'd-flex align-items-baseline gap-2 mb-1';
+        const title = document.createElement('strong');
+        title.textContent = device.name;
+        const model = document.createElement('span');
+        model.className = 'text-muted small';
+        model.textContent = device.model;
+        header.append(title, model, link(text.all, () => setMany(device.scenes, true)),
+          link(text.none, () => setMany(device.scenes, false)));
+        group.append(header);
+
+        device.scenes.forEach((scene, s) => {
+          const row = document.createElement('div');
+          row.className = 'form-check';
+          const input = document.createElement('input');
+          input.className = 'form-check-input';
+          input.type = 'checkbox';
+          input.id = `scene-${d}-${s}`;
+          input.dataset.scene = norm(scene);
+          input.addEventListener('change', () => setMany([scene], input.checked));
+          const label = document.createElement('label');
+          label.className = 'form-check-label';
+          label.htmlFor = input.id;
+          label.textContent = scene;
+          row.append(input, label);
+          group.append(row);
+        });
+        container.append(group);
+      });
+      refresh();
+    }
+
+    function link(label, onClick) {
+      const a = document.createElement('a');
+      a.href = '#';
+      a.className = 'small';
+      a.textContent = label;
+      a.addEventListener('click', (event) => {
+        event.preventDefault();
+        onClick();
+      });
+      return a;
+    }
+
+    /** Shows the current selection; the same scene name on several devices shares one state. */
+    function refresh() {
+      document.querySelectorAll('[data-scene]').forEach((input) => (input.checked = ticked.has(input.dataset.scene)));
+      $('auto-add').checked = autoAdd;
+      $('auto-add-help').textContent = autoAdd ? text.autoAddOn : text.autoAddOff;
+      $('none-selected').classList.toggle('d-none', autoAdd || known.size === 0 || ticked.size > 0);
+    }
+
+    function setMany(scenes, on) {
+      scenes.forEach((scene) => (on ? ticked.add(norm(scene)) : ticked.delete(norm(scene))));
+      save();
+    }
+
+    /**
+     * Stores the selection: with automatic adding as `exclude` (the unticked scenes),
+     * otherwise as `include` (the ticked ones). Names of scenes not known here
+     * (e.g. of a device that is offline) are kept in the active list.
+     */
+    function save() {
+      const unknown = (list) => (list ?? []).filter((name) => !known.has(norm(name)));
+      const scenes = [...known.entries()];
+      // The Homebridge UI merges updates into the existing config, so a list is emptied, not deleted.
+      if (autoAdd) {
+        config.exclude = [...unknown(config.exclude), ...scenes.filter(([key]) => !ticked.has(key)).map(([, name]) => name)];
+        config.include = [];
+      } else {
+        config.include = [...unknown(config.include), ...scenes.filter(([key]) => ticked.has(key)).map(([, name]) => name)];
+        config.exclude = [];
+      }
+      refresh();
+      hb.updatePluginConfig([config]);
+    }
+
+    /** Derives the switch and the ticks from the include / exclude lists of `block`. */
+    function loadSelection(block) {
+      const include = new Set((block.include ?? []).map(norm));
+      const exclude = new Set((block.exclude ?? []).map(norm));
+      autoAdd = include.size === 0;
+      ticked.clear();
+      for (const key of known.keys()) {
+        if (autoAdd ? !exclude.has(key) : include.has(key)) {
+          ticked.add(key);
+        }
+      }
+    }
+
+    async function start() {
+      try {
+        text = String(await hb.i18nCurrentLang()).toLowerCase().startsWith('hu') ? TEXT.hu : TEXT.en;
+      } catch {
+        text = TEXT.en;
+      }
+      translate();
+
+      config = (await hb.getPluginConfig())[0] ?? { platform: PLATFORM, name: 'Nanoleaf Scenes' };
+      let catalog = {};
+      try {
+        catalog = await hb.request('/scenes');
+      } catch {
+        catalog = {};
+      }
+      const devices = Object.values(catalog)
+        .filter((device) => Array.isArray(device?.scenes))
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      devices.forEach((device) => device.scenes.forEach((scene) => known.set(norm(scene), scene)));
+
+      loadSelection(config);
+
+      $('auto-add').addEventListener('change', () => {
+        autoAdd = $('auto-add').checked;
+        save();
+      });
+
+      // The form below shows include / exclude too, so it may have changed them by hand.
+      hb.addEventListener('configChanged', (event) => {
+        const block = Array.isArray(event.data) ? event.data[0] : event.data;
+        if (block) {
+          config = block;
+          loadSelection(config);
+          refresh();
+        }
+      });
+
+      render(devices);
+      hb.showSchemaForm();
+    }
+
+    hb.addEventListener('ready', () => {
+      start().catch((err) => hb.toast.error(String(err?.message ?? err)));
+    });
+  })();
+</script>

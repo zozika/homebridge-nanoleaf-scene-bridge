@@ -259,6 +259,7 @@ export class NanoleafDevice {
     this.info = info;
     this.isOn = Boolean(info.state?.on?.value);
     this.setCurrentEffect(info.effects.select ?? '');
+    this.platform.sceneCatalog.record(info.serialNo, info.name, info.model, info.effects.effectsList ?? []);
     this.syncScenes(info);
     this.setReachable(true);
     this.updateSwitches();
@@ -334,7 +335,8 @@ export class NanoleafDevice {
     }
     this.platform.unregisterAccessories(removed);
 
-    if (this.hasSynced && (added.length > 0 || removed.length > 0)) {
+    // On the first sync only removals are news (e.g. scenes deselected in the settings).
+    if (added.length > 0 && this.hasSynced || removed.length > 0) {
       this.log('info', `Scene list changed: ${added.length} added, ${removed.length} removed.`);
     }
   }

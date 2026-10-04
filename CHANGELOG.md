@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+### Added
+- **Scene selection on the settings page**: the scenes of every device are listed with ticks, so you choose which ones
+  appear in HomeKit without typing names. *Add new scenes automatically* decides whether scenes created later in the
+  Nanoleaf app show up too. Switches you keep stay the same accessories, so Home app scenes using them keep working.
+- The plugin stores the scene list of each device (`nanoleaf-scene-bridge-scenes.json` in the Homebridge storage
+  folder) for the settings page.
+- The log reports switches removed because their scene was deselected or deleted.
+
 ## 0.2.1
 
 ### Fixed

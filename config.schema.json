@@ -2,6 +2,8 @@
   "pluginAlias": "NanoleafSceneBridge",
   "pluginType": "platform",
   "singular": true,
+  "customUi": true,
+  "customUiPath": "./homebridge-ui",
   "headerDisplay": "Every scene of your Wi-Fi Nanoleaf devices appears in HomeKit as a switch; add the switches to Home app scenes. Devices on your network are found automatically. To pair a device, enable **Connect to API** in its settings in the Nanoleaf app (or hold its power button for 5-7 seconds) while Homebridge is running.",
   "footerDisplay": "If this plugin lights up your home, you can [buy me a coffee](https://www.buymeacoffee.com/palmaiz) ☕",
   "schema": {
@@ -79,7 +81,7 @@
       "include": {
         "title": "Only these scenes",
         "type": "array",
-        "description": "If set, only these scenes are exposed. Leave empty to expose all.",
+        "description": "Normally set with the scene list above. If set, only these scenes are exposed.",
         "items": {
           "type": "string"
         }
@@ -89,7 +91,8 @@
         "type": "array",
         "items": {
           "type": "string"
-        }
+        },
+        "description": "Normally set with the scene list above."
       },
       "pollInterval": {
         "title": "Poll interval (seconds)",
@@ -126,7 +129,7 @@
     "namePrefix",
     {
       "type": "fieldset",
-      "title": "Scene filter",
+      "title": "Scene list (set by the ticks above)",
       "expandable": true,
       "items": [
         {
