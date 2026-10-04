@@ -11,11 +11,16 @@ const { toHomeKitName } = device;
 const TOKEN = 'testtoken';
 const requests = [];
 let pairingMode = false;
+let active = 0;
+let maxActive = 0;
 let server;
 let port;
 
 before(async () => {
   server = http.createServer((req, res) => {
+    active++;
+    maxActive = Math.max(maxActive, active);
+    res.on('close', () => active--);
     let body = '';
     req.on('data', (chunk) => (body += chunk));
     req.on('end', () => {
@@ -39,6 +44,10 @@ before(async () => {
           state: { on: { value: true } },
           effects: { select: 'Forest', effectsList: ['Forest', 'Ocean'] },
         }));
+      } else if (path === '/effects/effectsList') {
+        setTimeout(() => res.writeHead(200).end('["Forest","Ocean"]'), 20);
+      } else if (path === '/effects/select') {
+        setTimeout(() => res.writeHead(200).end('"Ocean"'), 20);
       } else if ((path === '/effects' || path === '/state') && req.method === 'PUT') {
         res.writeHead(204).end();
       } else if (path.startsWith('/events')) {
@@ -82,6 +91,15 @@ test('selectEffect and setOn send the expected requests', async () => {
   assert.deepEqual(state, { method: 'PUT', url: `/api/v1/${TOKEN}/state`, body: '{"on":{"value":false}}' });
 });
 
+test('requests to one device are sent one at a time and the effects endpoints are read', async () => {
+  const c = new NanoleafClient('127.0.0.1', port, TOKEN);
+  maxActive = 0;
+  const [list, selected] = await Promise.all([c.getEffectsList(), c.getSelectedEffect(), c.getInfo()]);
+  assert.deepEqual(list, ['Forest', 'Ocean']);
+  assert.equal(selected, 'Ocean');
+  assert.equal(maxActive, 1);
+});
+
 test('an invalid token is reported as HTTP 401', async () => {
   await assert.rejects(
     new NanoleafClient('127.0.0.1', port, 'wrong').getInfo(),
@@ -105,5 +123,7 @@ test('toHomeKitName removes characters HomeKit does not accept', () => {
   assert.equal(toHomeKitName('*Solid*'), 'Solid');
   assert.equal(toHomeKitName('Rock\'n\'Roll  #2'), 'Rock\'n\'Roll 2');
   assert.equal(toHomeKitName('Ébredés - reggel'), 'Ébredés - reggel');
+  assert.equal(toHomeKitName('Relax & Refresh'), 'Relax & Refresh');
+  assert.equal(toHomeKitName('Party! (Night)'), 'Party! (Night');
   assert.equal(toHomeKitName('🎉🎉'), 'Nanoleaf Scene');
 });

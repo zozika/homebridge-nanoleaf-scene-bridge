@@ -217,6 +217,11 @@ export class NanoleafDevice {
         try {
           await client.streamEvents([EVENT_STATE, EVENT_EFFECTS], (id, events) => this.onEvents(id, events), signal);
         } catch (err) {
+          // Some models (e.g. NL73K1) answer 500 or 404: they have no event stream at all.
+          if (err instanceof NanoleafHttpError && (err.status === 500 || err.status === 404)) {
+            this.log('info', `This device does not push changes; they are picked up by polling every ${this.pollMs / 1000} s.`);
+            return;
+          }
           if (!this.stopped && !signal.aborted) {
             this.log('debug', `Event stream error: ${errorMessage(err)}`);
           }
@@ -248,9 +253,12 @@ export class NanoleafDevice {
       this.stop();
       return;
     }
+    if (!info.effects) {
+      info.effects = { effectsList: await client.getEffectsList(), select: await client.getSelectedEffect() };
+    }
     this.info = info;
     this.isOn = Boolean(info.state?.on?.value);
-    this.setCurrentEffect(info.effects?.select ?? '');
+    this.setCurrentEffect(info.effects.select ?? '');
     this.syncScenes(info);
     this.setReachable(true);
     this.updateSwitches();
@@ -419,7 +427,7 @@ export class NanoleafDevice {
       return;
     }
     const previous = this.previousEffect;
-    if (offAction === 'previous' && previous && previous !== effect && this.info?.effects.effectsList.includes(previous)) {
+    if (offAction === 'previous' && previous && previous !== effect && this.info?.effects?.effectsList.includes(previous)) {
       await client.selectEffect(previous);
       this.setCurrentEffect(previous);
       this.log('info', `Scene "${effect}" deactivated, back to "${previous}".`);
@@ -479,12 +487,12 @@ export class NanoleafDevice {
 }
 
 /**
- * HomeKit names may only contain letters, numbers, spaces and . , ' -
- * and must start and end with a letter or number.
+ * HomeKit names may only contain letters, numbers, spaces and ' ’ & ! . _ : ; ( ) / , -
+ * and must start and end with a letter or number (same rule as HAP-NodeJS checkName).
  */
 export function toHomeKitName(name: string): string {
   const cleaned = name
-    .replace(/[^\p{L}\p{N} .,'-]/gu, ' ')
+    .replace(/[^\p{L}\p{N}\p{Zs}\u2019'&!._:;()/,-]/gu, ' ')
     .replace(/\s+/g, ' ')
     .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
   return cleaned || 'Nanoleaf Scene';

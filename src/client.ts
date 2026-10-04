@@ -18,7 +18,8 @@ export interface NanoleafInfo {
   state: {
     on: { value: boolean };
   };
-  effects: {
+  /** Missing on some newer models (e.g. NL73K1); read it from the /effects endpoints instead. */
+  effects?: {
     select: string;
     effectsList: string[];
   };
@@ -63,6 +64,8 @@ export async function requestToken(host: string, port = DEFAULT_PORT, timeoutMs 
 
 export class NanoleafClient {
   private readonly url: string;
+  /** Requests are sent one at a time: some models (e.g. NL73K1) reset extra parallel connections. */
+  private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
     readonly host: string,
@@ -74,8 +77,15 @@ export class NanoleafClient {
   }
 
   async getInfo(): Promise<NanoleafInfo> {
-    const res = await this.request('GET', '/');
-    return (await res.json()) as NanoleafInfo;
+    return JSON.parse(await this.request('GET', '/')) as NanoleafInfo;
+  }
+
+  async getEffectsList(): Promise<string[]> {
+    return JSON.parse(await this.request('GET', '/effects/effectsList')) as string[];
+  }
+
+  async getSelectedEffect(): Promise<string> {
+    return JSON.parse(await this.request('GET', '/effects/select')) as string;
   }
 
   async selectEffect(name: string): Promise<void> {
@@ -116,7 +126,14 @@ export class NanoleafClient {
     }
   }
 
-  private async request(method: string, path: string, body?: unknown): Promise<Response> {
+  /** Queues the request behind the previous one and resolves with the response body. */
+  private request(method: string, path: string, body?: unknown): Promise<string> {
+    const result = this.queue.then(() => this.send(method, path, body));
+    this.queue = result.catch(() => undefined);
+    return result;
+  }
+
+  private async send(method: string, path: string, body?: unknown): Promise<string> {
     const res = await fetch(this.url + path, {
       method,
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
@@ -126,7 +143,7 @@ export class NanoleafClient {
     if (!res.ok) {
       throw new NanoleafHttpError(`${method} ${path} failed with HTTP ${res.status}`, res.status);
     }
-    return res;
+    return res.text();
   }
 }
 

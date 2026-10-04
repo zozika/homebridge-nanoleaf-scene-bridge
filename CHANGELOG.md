@@ -13,6 +13,13 @@
   and a device that is both configured and discovered is handled once, without pairing again.
 - With discovery on, cached switches of devices that are not found are kept instead of being removed.
 
+### Fixed
+- **No scenes on newer models** such as the Nanoleaf Outdoor String Lights (NL73K1, firmware 4.x): their device info
+  has no scene list, so it is now read from the `/effects` endpoints.
+- These models reset a third parallel connection (`ECONNRESET`); requests to a device are now sent one at a time.
+- Devices without an event stream are only polled, without retrying the stream every 10 seconds.
+- Scene names keep the characters HomeKit accepts (`&`, `!`, `(`, `:` …), e.g. *Relax & Refresh*.
+
 ## 0.1.0
 
 First release.
